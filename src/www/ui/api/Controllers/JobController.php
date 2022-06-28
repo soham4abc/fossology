@@ -113,6 +113,48 @@ class JobController extends RestController
     }
   }
 
+  public function getUserJobs($request, $response, $args)
+  {
+    $query = $request->getQueryParams();
+
+    $limit = 0;
+    $page = 1;
+    if ($request->hasHeader('limit')) {
+      $limit = $request->getHeaderLine('limit');
+      $page = $request->getHeaderLine('page');
+      if (empty($page)) {
+        $page = 1;
+      }
+      if ((isset($limit) && (! is_numeric($limit) || $limit < 0)) ||
+        (! is_numeric($page) || $page < 1)) {
+        $returnVal = new Info(400,
+          "Limit and page cannot be smaller than 1 and has to be numeric!",
+          InfoType::ERROR);
+        return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+      }
+    }
+
+    $id = null;
+    if (isset($args['id'])) {
+      $id = null;
+      $uid = intval($args['id']);
+      return $this->getAllUserResults($id,$uid, $response, $limit, $page);
+    }
+
+    if ($id !== null) {
+      /* If the ID is passed, don't check for upload */
+      return $this->getAllResults($id, $response, $limit, $page);
+    }
+
+    if (array_key_exists(self::UPLOAD_PARAM, $query)) {
+      /* If the upload is passed, filter accordingly */
+      return $this->getFilteredResults(intval($query[self::UPLOAD_PARAM]),
+        $response, $limit, $page);
+    } else {
+      return $this->getAllResults($id, $response, $limit, $page);
+    }
+  }
+
   /**
    * Create a new job
    *
@@ -185,6 +227,20 @@ class JobController extends RestController
   private function getAllResults($id, $response, $limit, $page)
   {
     list($jobs, $count) = $this->dbHelper->getJobs($id, $limit, $page);
+    $finalJobs = [];
+    foreach ($jobs as $job) {
+      $this->updateEtaAndStatus($job);
+      $finalJobs[] = $job->getArray();
+    }
+    if ($id !== null) {
+      $finalJobs = $finalJobs[0];
+    }
+    return $response->withHeader("X-Total-Pages", $count)->withJson($finalJobs, 200);
+  }
+
+  private function getAllUserResults($id,$uid, $response, $limit, $page)
+  {
+    list($jobs, $count) = $this->dbHelper->getUserJobs($id,$uid, $limit, $page);
     $finalJobs = [];
     foreach ($jobs as $job) {
       $this->updateEtaAndStatus($job);
