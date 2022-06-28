@@ -359,7 +359,7 @@ FROM $tableName WHERE $idRowName = $1", [$id],
   {
     $jobSQL = "SELECT job_pk, job_queued, job_name, job_upload_fk," .
       " job_user_fk, job_group_fk FROM job WHERE job_user_fk='$uid'";
-    $totalJobSql = "SELECT count(*) AS cnt FROM job";
+    $totalJobSql = "SELECT count(*) AS cnt FROM job WHERE job_user_fk='$uid'";
 
     $filter = "";
     $pagination = "";
@@ -375,8 +375,8 @@ FROM $tableName WHERE $idRowName = $1", [$id],
         $countStatement .= ".withUploadFilter";
       }
     } else {
-      $params[] = $id;
-      $filter = "WHERE job_pk = $" . count($params);
+      $params[] = $uid;
+      $filter = "WHERE job_user_fk = $" . count($params);
       $statement .= ".withJobFilter";
       $countStatement .= ".withJobFilter";
     }
