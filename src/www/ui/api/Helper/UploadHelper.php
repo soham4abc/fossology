@@ -35,6 +35,7 @@ use Fossology\Lib\Db\DbManager;
 use Fossology\Lib\Proxy\ScanJobProxy;
 use Fossology\Lib\Proxy\UploadTreeProxy;
 use Fossology\Lib\Dao\AgentDao;
+use Fossology\Lib\Auth\Auth;
 use Fossology\UI\Api\Models\Findings;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
@@ -588,6 +589,83 @@ class UploadHelper
   }
 
   /**
+   * Get the copyright list for given upload scanned by copyright agent
+   * @param integer $uploadId        Upload ID
+   * @return array Array containing `copyright` and
+   * `filepath` for each upload tree item
+   */
+  public function getUploadCopyrightList($uploadId)
+  {
+    global $container;
+    $restHelper = $container->get('helper.restHelper');
+    $uploadDao = $restHelper->getUploadDao();
+    $agentDao = $container->get('dao.agent');
+
+    $uploadTreeTableName = $uploadDao->getUploadtreeTableName($uploadId);
+    $parent = $uploadDao->getParentItemBounds($uploadId, $uploadTreeTableName);
+
+    $scanProx = new ScanJobProxy($agentDao, $uploadId);
+    /** @var UIExportList $copyrightListObj
+     * UIExportList object to get copyright
+     */
+
+    $copyrightListObj = $restHelper->getPlugin('export-list');
+    $copyrightList = $copyrightListObj->getCopyrights($uploadId,
+      $parent->getItemId(), $uploadTreeTableName, -1, '');
+    if (array_key_exists("warn", $copyrightList)) {
+      unset($copyrightList["warn"]);
+    }
+
+    $responseList = array();
+    foreach ($copyrightList as $copyFilepath) {
+      $flag=0;
+      foreach ($responseList as $response) {
+        if ($copyFilepath['content'] == $response['copyright']) {
+          $flag=1;
+          break;
+        }
+      }
+      if ($flag==0) {
+        $copyrightContent = array();
+        foreach ($copyrightList as $copy) {
+          if (strcasecmp($copyFilepath['content'], $copy['content']) == 0) {
+            $copyrightContent[] = $copy['filePath'];
+          }
+        }
+        $responseRow = array();
+        $responseRow['copyright'] = $copyFilepath['content'];
+        $responseRow['filePath'] = $copyrightContent;
+        $responseList[] = $responseRow;
+      }
+    }
+    return $responseList;
+  }
+  /**
+    *  Get the clearing status for files within an upload
+     * @param DbManager $dbManager DbManager object
+     * @param integer $uploadTreeTableId upload tree id of the file
+     * @param integer $groupId groupId of the user
+     * @return String String containing the Clearing status message
+*/
+
+  public function fetchClearingStatus($dbManager, $uploadTreeTableId, $groupId)
+  {
+    $clearingStatus = [];
+    $clearingStatusMsg = array("WIP",null,null,"TO_BE_DISCUSSED","IRRELEVANT","IDENTIFIED","DO_NOT_USE","NON_FUNCTIONAL");
+    $sql = "SELECT * FROM clearing_decision WHERE uploadtree_fk=$1 AND group_fk=$2 ORDER BY date_added DESC;";
+    $stmt = __METHOD__.'.collectMainLicenses';
+    $rows = $dbManager->getRows($sql, array($uploadTreeTableId,"$groupId"), $stmt);
+    foreach ($rows as $rowItem) {
+      $clearingStatus[]=$rowItem['decision_type'];
+    }
+    if ($clearingStatus == []) {
+      return("not_found");
+    } else {
+      return ($clearingStatusMsg[(int)$clearingStatus[0]]);
+    }
+  }
+
+  /**
    * Get the license and copyright list for given upload scanned by provided agents
    * @param integer $uploadId        Upload ID
    * @param array $agents            List of agents to get list from
@@ -603,10 +681,10 @@ class UploadHelper
     $restHelper = $container->get('helper.restHelper');
     $uploadDao = $restHelper->getUploadDao();
     $agentDao = $container->get('dao.agent');
-
+    $dbManager = $restHelper->getDbHelper()->getDbManager();
     $uploadTreeTableName = $uploadDao->getUploadtreeTableName($uploadId);
     $parent = $uploadDao->getParentItemBounds($uploadId, $uploadTreeTableName);
-
+    $groupId = Auth::getGroupId();
     $scanProx = new ScanJobProxy($agentDao, $uploadId);
     $scanProx->createAgentStatus($agents);
     $agent_ids = $scanProx->getLatestSuccessfulAgentIds();
@@ -654,8 +732,11 @@ class UploadHelper
         $findings = new Findings($license['agentFindings'],
           $license['conclusions'], $copyrightContent);
         $responseRow = array();
+        $uploadTreeTableId = $license['uploadtree_pk'];
+        $testvariable= $this->fetchClearingStatus($dbManager, $uploadTreeTableId, $groupId);
         $responseRow['filePath'] = $license['filePath'];
         $responseRow['findings'] = $findings->getArray();
+        $responseRow['clearing_status'] = $testvariable;
         $responseList[] = $responseRow;
       }
     } elseif (!$boolLicense && $boolCopyright) {

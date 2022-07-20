@@ -362,7 +362,8 @@ ORDER BY lft asc
     $rgtStack = array($row['rgt']);
     $lastLft = $row['lft'];
     $path = implode('/', $pathStack);
-    $this->addToLicensesPerFileName($licensesPerFileName, $path, $row, $ignore, $clearingDecisionsForLicList);
+    $uploadTreeId = $row['uploadtree_pk'];
+    $this->addToLicensesPerFileName($licensesPerFileName, $path, $row, $ignore, $clearingDecisionsForLicList, $uploadTreeId);
     while ($row = $this->dbManager->fetchArray($result)) {
       if (!empty($excluding) && false!==strpos("/$row[ufile_name]/", $excluding)) {
         $lastLft = $row['rgt'] + 1;
@@ -374,7 +375,7 @@ ORDER BY lft asc
 
       $this->updateStackState($pathStack, $rgtStack, $lastLft, $row);
       $path = implode('/', $pathStack);
-      $this->addToLicensesPerFileName($licensesPerFileName, $path, $row, $ignore, $clearingDecisionsForLicList);
+      $this->addToLicensesPerFileName($licensesPerFileName, $path, $row, $ignore, $clearingDecisionsForLicList, $uploadTreeId);
     }
     $this->dbManager->freeResult($result);
     return array_reverse($licensesPerFileName);
@@ -395,11 +396,12 @@ ORDER BY lft asc
     }
   }
 
-  private function addToLicensesPerFileName(&$licensesPerFileName, $path, $row, $ignore, &$clearingDecisionsForLicList = array())
+  private function addToLicensesPerFileName(&$licensesPerFileName, $path, $row, $ignore, &$clearingDecisionsForLicList = array(), $uploadTreeId)
   {
     if (($row['ufile_mode'] & (1 << 29)) == 0) {
       if ($row['rf_shortname']) {
         $licensesPerFileName[$path]['scanResults'][] = $row['rf_shortname'];
+        $licensesPerFileName[$path]['uploadtree_pk'][] = $row['uploadtree_pk'];
         if (array_key_exists($row['uploadtree_pk'], $clearingDecisionsForLicList)) {
           $licensesPerFileName[$path]['concludedResults'][] = $clearingDecisionsForLicList[$row['uploadtree_pk']];
         }
