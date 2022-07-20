@@ -603,7 +603,6 @@ class UploadHelper
     $restHelper = $container->get('helper.restHelper');
     $uploadDao = $restHelper->getUploadDao();
     $agentDao = $container->get('dao.agent');
-
     $uploadTreeTableName = $uploadDao->getUploadtreeTableName($uploadId);
     $parent = $uploadDao->getParentItemBounds($uploadId, $uploadTreeTableName);
 
@@ -660,20 +659,30 @@ class UploadHelper
       }
     } elseif (!$boolLicense && $boolCopyright) {
       foreach ($copyrightList as $copyFilepath) {
+        $flag=0;
         $copyrightContent = array();
         foreach ($copyrightList as $copy) {
           if (($copyFilepath['filePath'] == $copy['filePath']) === true) {
             array_push($copyrightContent,$copy['content']);
           }
-        }
-        $findings = new Findings();
-        $findings->setCopyright($copyrightContent);
-        $responseRow = array();
-        $responseRow['filePath'] = $copy['filePath'];
-        $responseRow['copyright'] = $findings->getCopyright();
-        $responseList[] = $responseRow;
+        }        
+          $findings = new Findings();
+          $findings->setCopyright($copyrightContent);
+          $responseRow = array();
+          $responseRow['filePath'] = $copy['filePath'];
+          $responseRow['copyright'] = $findings->getCopyright();
+          foreach ($responseList as $response)
+          {
+            if ($responseRow['copyright']== $response['copyright'])
+            {
+              $flag=1;
+              break;
+            }
+          }
+          if($flag==0)
+          $responseList[] = $responseRow;        
       }
     }
-    return $responseList;
+    return ($responseList);
   }
 }
