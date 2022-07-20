@@ -198,6 +198,7 @@ class UIExportList extends FO_Plugin
         $row['filePath'] = $fileName;
         $row['agentFindings'] = $licenseNames['scanResults'];
         $row['conclusions'] = null;
+        $row['uploadtree_pk'] = $licenseNames['uploadtree_pk'][0];
         if (array_key_exists('concludedResults', $licenseNames) && !empty($licenseNames['concludedResults'])) {
           $row['conclusions'] = $this->consolidateConclusions($licenseNames['concludedResults']);
           $lines[] = $row;

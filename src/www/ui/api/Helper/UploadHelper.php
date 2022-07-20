@@ -22,8 +22,10 @@ use Fossology\Lib\Db\DbManager;
 use Fossology\Lib\Proxy\ScanJobProxy;
 use Fossology\Lib\Proxy\UploadTreeProxy;
 use Fossology\Lib\Dao\AgentDao;
+use Fossology\Lib\Auth\Auth;
 use Fossology\UI\Api\Models\Findings;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Fossology\Lib\Data\DecisionTypes;
 
 /**
  * @class UploadHelper
@@ -628,6 +630,31 @@ class UploadHelper
   }
 
   /**
+    *  Get the clearing status for files within an upload
+     * @param DbManager $dbManager DbManager object
+     * @param integer $uploadTreeTableId upload tree id of the file
+     * @param integer $groupId groupId of the user
+     * @return String String containing the Clearing status message
+*/
+
+  public function fetchClearingStatus($dbManager, $uploadTreeTableId, $groupId)
+  {
+    $clearingStatus = [];
+    $decTypes = new DecisionTypes;
+    $sql = "SELECT * FROM clearing_decision WHERE uploadtree_fk=$1 AND group_fk=$2 ORDER BY date_added DESC;";
+    $stmt = __METHOD__.'.collectMainLicenses';
+    $rows = $dbManager->getRows($sql, array($uploadTreeTableId,"$groupId"), $stmt);
+    foreach ($rows as $rowItem) {
+      $clearingStatus[]=$rowItem['decision_type'];
+    }
+    if ($clearingStatus == []) {
+      return("not_found");
+    } else {
+      return ($decTypes->getTypeName((int)$clearingStatus[0]));
+    }
+  }
+
+  /**
    * Get the license and copyright list for given upload scanned by provided agents
    * @param integer $uploadId        Upload ID
    * @param array $agents            List of agents to get list from
@@ -643,10 +670,10 @@ class UploadHelper
     $restHelper = $container->get('helper.restHelper');
     $uploadDao = $restHelper->getUploadDao();
     $agentDao = $container->get('dao.agent');
-
+    $dbManager = $restHelper->getDbHelper()->getDbManager();
     $uploadTreeTableName = $uploadDao->getUploadtreeTableName($uploadId);
     $parent = $uploadDao->getParentItemBounds($uploadId, $uploadTreeTableName);
-
+    $groupId = $restHelper->getGroupId();
     $scanProx = new ScanJobProxy($agentDao, $uploadId);
     $scanProx->createAgentStatus($agents);
     $agent_ids = $scanProx->getLatestSuccessfulAgentIds();
@@ -694,8 +721,11 @@ class UploadHelper
         $findings = new Findings($license['agentFindings'],
           $license['conclusions'], $copyrightContent);
         $responseRow = array();
+        $uploadTreeTableId = $license['uploadtree_pk'];
+        $testvariable= $this->fetchClearingStatus($dbManager, $uploadTreeTableId, $groupId);
         $responseRow['filePath'] = $license['filePath'];
         $responseRow['findings'] = $findings->getArray();
+        $responseRow['clearing_status'] = $testvariable;
         $responseList[] = $responseRow;
       }
     } elseif (!$boolLicense && $boolCopyright) {
