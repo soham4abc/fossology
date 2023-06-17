@@ -226,7 +226,7 @@ class CopyrightHistogramProcessPost extends FO_Plugin
    * @param boolean $activated           True to get activated copyrights, else false
    * @return array[][] Array of table records, filtered records, total records
    */
-  protected function getCopyrights($upload_pk, $item, $uploadTreeTableName, $agentId, $type, $filter, $activated = true)
+  public function getCopyrights($upload_pk, $item, $uploadTreeTableName, $agentId, $type, $filter, $activated = true)
   {
     $offset = GetParm('iDisplayStart', PARM_INTEGER);
     $limit = GetParm('iDisplayLength', PARM_INTEGER);
@@ -322,7 +322,7 @@ count(*) AS copyright_count " .
    * @param string $type Result type
    * @return string Table name
    */
-  private function getTableName($type)
+  public function getTableName($type)
   {
     switch ($type) {
       case "ipra" :

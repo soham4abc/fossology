@@ -1457,6 +1457,61 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
+  /file/upload{id}/item/{itemId}/copyright/{hash}:
+    parameters:
+      - name: id
+        required: true
+        description: upload ID
+        in: path
+        schema:
+          type: integer
+      - name: itemId
+        required: true
+        description: Upload tree ID
+        in: path
+        schema:
+          type: integer
+      - name: hash
+        required: true
+        description: copyright hash
+        in: path
+        schema:
+          type: string
+    put:
+      operationId: UpdateFileCopyrights
+      tags:
+        - Copyright
+      summary: Updates a copyright for a file
+      description: Updates a copyright statement for a particular file
+      requestBody:
+        description: ClearingInfo payload
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetCopyrightInfo'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Total-Pages:
+              description: Total number of pages which can be generated based on limit
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/updateCopyright'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
 
   /folders:
     parameters:
@@ -2553,6 +2608,27 @@ components:
         copyrightCount:
           type: integer
           description: No. of copyrights found in the upload.
+    updateCopyright:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: Status code
+          example: 200
+        content:
+          type: string
+          description: Success message
+          example: "Successfully Updated Copyright."
+        type:
+          type: string
+          description: type of message
+          example: "INFO"
+    SetCopyrightInfo:
+      type: object
+      properties:
+        content:
+          type: string
+          description: Copyright text
     Job:
       type: object
       properties:
