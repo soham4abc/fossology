@@ -247,6 +247,7 @@ $app->group('/filesearch',
 $app->group('/file',
   function (\Slim\Routing\RouteCollectorProxy $app) {
     $app->put('/upload/{id:\\d+}/item/{itemId:\\d+}/copyright/{hash:.*}', CopyrightController::class . ':UpdateFileCopyrights');
+    $app->get('/upload/{id:\\d+}/item/{itemId:\\d+}/decision', CopyrightController::class . ':getFileDecisions');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 

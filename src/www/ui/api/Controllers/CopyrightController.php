@@ -21,6 +21,7 @@ use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
 use Psr\Http\Message\ServerRequestInterface;
 use Fossology\Lib\Data\Tree\ItemTreeBounds;
+use Fossology\Lib\Data\DecisionTypes;
 
 
 class CopyrightController extends RestController
@@ -104,6 +105,67 @@ class CopyrightController extends RestController
       $this->copyrightDao->updateTable($item, $copyrightHash, $content, $userId, $cpTable);
       $returnVal = new Info(200, "Successfully Updated Copyright.", InfoType::INFO);
       return $response->withJson($returnVal->getArray(), 200);
+    } catch (\Exception $e) {
+      $returnVal = new Info(500, $e->getMessage(), InfoType::ERROR);
+      return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+    }
+  }
+
+
+  /**
+   * Get clearing status for a uploadtree
+   *
+   * @param  ServerRequestInterface $request
+   * @param  ResponseHelper         $response
+   * @param  array                  $args
+   * @return ResponseHelper
+   */
+
+  public function getFileDecisions($request, $response, $args)
+  {
+    $decTypes = new DecisionTypes;
+    $finalValue =[];
+    try {
+      $uploadDao = $this->restHelper->getUploadDao();
+      $uploadTreeId = intval($args['itemId']);
+      $userId = $this->restHelper->getUserId();
+      $groupId = $this->restHelper->getGroupId();
+      $UploadTreeTableName = $uploadDao->getUploadtreeTableName($uploadTreeId);
+      $cpTable = $this->CopyrightHist->getTableName('statement');
+      $item = $uploadDao->getItemTreeBounds($uploadTreeId, $UploadTreeTableName);
+      $body = $this->getParsedBody($request);
+      $content = $body['content'];
+
+
+      if (!$this->dbHelper->doesIdExist($uploadDao->getUploadtreeTableName($uploadTreeId), "uploadtree_pk", $uploadTreeId)) {
+        $returnVal = new Info(404, "Item does not exist", InfoType::ERROR);
+      }
+      if ($returnVal !== null) {
+        return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+      }
+      $clearingList = $this->clearingDao->getFileClearingsFolder($item, $groupId);
+      $clearingArray = [];
+      $fileName = [];
+      $returnval=null;
+      foreach ($clearingList as $clearingDecision) {
+        $clearingArray[] = $clearingDecision->getType();
+        $fileName[] = $clearingDecision->getPfileId();
+      }
+      if (empty($clearingArray) || $clearingArray[0] === null) {
+        $returnVal="NOASSERTION";
+      } else {
+        $i=0;
+        foreach ($clearingArray as $decision) 
+        {
+          $returnVal = $decTypes->getTypeName($decision);
+          $finalValue[]=array('clearing_status'=>$returnVal,'file_id'=>$fileName[$i]);
+          $i+=1;
+        }
+        
+      }
+      //$returnVal = new Info(200, "Successfully Updated Copyright.", InfoType::INFO);
+      
+      return $response->withJson($finalValue, 200);
     } catch (\Exception $e) {
       $returnVal = new Info(500, $e->getMessage(), InfoType::ERROR);
       return $response->withJson($returnVal->getArray(), $returnVal->getCode());
